@@ -113,8 +113,7 @@ var is_scrolling := false:
 enum SCROLL_TYPE {WHEEL, BAR, DRAG}
 var last_scroll_type: SCROLL_TYPE
 
-####################
-##### Virtual functions
+#region Virtual Functions
 
 func _ready() -> void:
 	if debug_mode:
@@ -378,12 +377,9 @@ func _set(property, value) -> bool:
 		_:
 			return false
 
-##### Virtual functions
-####################
+#endregion
 
-
-####################
-##### LOGIC
+#region Scrolling Logic
 
 func scroll(vertical: bool, axis_velocity: float, axis_pos: float, delta: float):
 	# If no scroll needed, don't apply forces
@@ -680,12 +676,9 @@ func kill_scroll_to_tweens() -> void:
 	kill_scroll_x_to_tween()
 	kill_scroll_y_to_tween()
 
-##### LOGIC
-####################
+#endregion
 
-
-####################
-##### DEBUG DRAWING
+#region Debug Drawing
 
 var debug_gradient := Gradient.new()
 
@@ -718,12 +711,9 @@ func draw_debug() -> void:
 	draw_line(origin, origin + Vector2(0.0, velocity.y*0.01), debug_gradient.sample(clamp(velocity.y*2 / size.y, 0.0, 1.0)), 5.0)
 	draw_line(origin, origin + Vector2(0.0, velocity.x*0.01), debug_gradient.sample(clamp(velocity.x*2 / size.x, 0.0, 1.0)), 5.0)
 
-##### DEBUG DRAWING
-####################
+#endregion
 
-
-####################
-##### API FUNCTIONS
+#region API Functions
 
 ## Scrolls to specific x position
 func scroll_x_to(x_pos: float, duration := 0.5) -> void:
@@ -902,5 +892,5 @@ func ensure_control_visible(control : Control) -> void:
 		scroll_y_to(content_node_position.y - boundary_dist.z + follow_focus_margin)
 	elif boundary_dist.w > 0 - follow_focus_margin:
 		scroll_y_to(content_node_position.y - boundary_dist.w - follow_focus_margin)
-##### API FUNCTIONS
-########################
+
+#endregion

@@ -82,6 +82,8 @@ var v_scrollbar_dragging := false
 var content_dragging := false
 ## Timer for hiding scroll bar
 var scrollbar_hide_timer := Timer.new()
+## Tween for showing scroll bar
+var scrollbar_show_tween: Tween
 ## Tween for hiding scroll bar
 var scrollbar_hide_tween: Tween
 ## Tween for scroll x to
@@ -94,6 +96,8 @@ var scroll_y_to_tween: Tween
 var drag_temp_data := []
 ## Whether touch point is in deadzone.
 var is_in_deadzone := false
+## Whether mouse is on h or v scroll bar
+var mouse_on_scrollbar := false
 
 ## If content is being scrolled
 var is_scrolling := false:
@@ -120,6 +124,10 @@ func _ready() -> void:
 	
 	get_v_scroll_bar().gui_input.connect(_scrollbar_input.bind(true))
 	get_h_scroll_bar().gui_input.connect(_scrollbar_input.bind(false))
+	get_v_scroll_bar().mouse_entered.connect(_mouse_on_scroll_bar.bind(true))
+	get_v_scroll_bar().mouse_exited.connect(_mouse_on_scroll_bar.bind(false))
+	get_h_scroll_bar().mouse_entered.connect(_mouse_on_scroll_bar.bind(true))
+	get_h_scroll_bar().mouse_exited.connect(_mouse_on_scroll_bar.bind(false))
 	get_viewport().gui_focus_changed.connect(_on_focus_changed)
 
 	for c in get_children():
@@ -127,6 +135,7 @@ func _ready() -> void:
 			content_node = c
 	
 	add_child(scrollbar_hide_timer)
+	scrollbar_hide_timer.one_shot = true
 	scrollbar_hide_timer.timeout.connect(_scrollbar_hide_timer_timeout)
 	if hide_scrollbar_over_time:
 		scrollbar_hide_timer.start(scrollbar_hide_time)
@@ -142,18 +151,21 @@ func _process(delta: float) -> void:
 	# Update horizontal scroll bar
 	get_h_scroll_bar().set_value_no_signal(-pos.x)
 	get_h_scroll_bar().queue_redraw()
+	# Always show sroll bars when scrolling or mouse is on any scroll bar
+	if hide_scrollbar_over_time and (is_scrolling or mouse_on_scrollbar):
+		show_scrollbars()
 	# Update state
 	update_state()
 
 	if debug_mode:
 		queue_redraw()
 
+# Detecting mouse entering and exiting scroll bar
+func _mouse_on_scroll_bar(entered :bool) -> void:
+	mouse_on_scrollbar = entered
+
 # Forwarding scroll inputs from scrollbar
 func _scrollbar_input(event: InputEvent, vertical : bool) -> void:
-	if hide_scrollbar_over_time:
-		show_scrollbars()
-		scrollbar_hide_timer.start(scrollbar_hide_time)
-	
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_WHEEL_DOWN\
 		or event.button_index == MOUSE_BUTTON_WHEEL_UP\
@@ -194,9 +206,9 @@ func _scrollbar_input(event: InputEvent, vertical : bool) -> void:
 				h_scrollbar_dragging = false
 
 func _gui_input(event: InputEvent) -> void:
-	if hide_scrollbar_over_time:
+	# Show scroll bars when mouse moves
+	if hide_scrollbar_over_time and event is InputEventMouseMotion:
 		show_scrollbars()
-		scrollbar_hide_timer.start(scrollbar_hide_time)
 	
 	if event is InputEventMouseButton:
 		match event.button_index:
@@ -313,6 +325,8 @@ func _set_hide_scrollbar_over_time(value: bool) -> bool:
 	if value == false:
 		if scrollbar_hide_timer != null:
 			scrollbar_hide_timer.stop()
+		if scrollbar_show_tween != null:
+			scrollbar_show_tween.kill()
 		if scrollbar_hide_tween != null:
 			scrollbar_hide_tween.kill()
 		get_h_scroll_bar().modulate = Color.WHITE
@@ -828,22 +842,42 @@ func should_scroll_horizontal() -> bool:
 ## Fades out scrollbars within given [param time].[br]
 ## Default for [param time] is current [member scrollbar_fade_out_time]
 func hide_scrollbars(time: float = scrollbar_fade_out_time) -> void:
-	if scrollbar_hide_tween != null:
-		scrollbar_hide_tween.kill()
-	scrollbar_hide_tween = create_tween()
-	scrollbar_hide_tween.set_parallel(true)
-	scrollbar_hide_tween.tween_property(get_v_scroll_bar(), 'modulate', Color.TRANSPARENT, time)
-	scrollbar_hide_tween.tween_property(get_h_scroll_bar(), 'modulate', Color.TRANSPARENT, time)
+	# Kill scrollbar_show_tween to avoid animation conflict
+	if scrollbar_show_tween != null and scrollbar_show_tween.is_valid():
+		scrollbar_show_tween.kill()
+	# Create new tweens if needed
+	if (
+		get_v_scroll_bar().modulate != Color.TRANSPARENT \
+		or get_h_scroll_bar().modulate != Color.TRANSPARENT
+	):
+		if scrollbar_hide_tween and !scrollbar_hide_tween.is_running():
+			scrollbar_hide_tween.kill()
+		if scrollbar_hide_tween == null or !scrollbar_hide_tween.is_valid():
+			scrollbar_hide_tween = create_tween()
+			scrollbar_hide_tween.set_parallel(true)
+			scrollbar_hide_tween.tween_property(get_v_scroll_bar(), 'modulate', Color.TRANSPARENT, time)
+			scrollbar_hide_tween.tween_property(get_h_scroll_bar(), 'modulate', Color.TRANSPARENT, time)
 
 ## Fades in scrollbars within given [param time].[br]
 ## Default for [param time] is current [member scrollbar_fade_in_time]
 func show_scrollbars(time: float = scrollbar_fade_in_time) -> void:
-	if scrollbar_hide_tween != null:
+	# Restart timer
+	scrollbar_hide_timer.start(scrollbar_hide_time)
+	# Kill scrollbar_hide_tween to avoid animation conflict
+	if scrollbar_hide_tween != null and scrollbar_hide_tween.is_valid():
 		scrollbar_hide_tween.kill()
-	scrollbar_hide_tween = create_tween()
-	scrollbar_hide_tween.set_parallel(true)
-	scrollbar_hide_tween.tween_property(get_v_scroll_bar(), 'modulate', Color.WHITE, time)
-	scrollbar_hide_tween.tween_property(get_h_scroll_bar(), 'modulate', Color.WHITE, time)
+	# Create new tweens if needed
+	if (
+		get_v_scroll_bar().modulate != Color.WHITE \
+		or get_h_scroll_bar().modulate != Color.WHITE \
+	):
+		if scrollbar_show_tween and !scrollbar_show_tween.is_running():
+			scrollbar_show_tween.kill()
+		if scrollbar_show_tween == null or !scrollbar_show_tween.is_valid():
+			scrollbar_show_tween = create_tween()
+			scrollbar_show_tween.set_parallel(true)
+			scrollbar_show_tween.tween_property(get_v_scroll_bar(), 'modulate', Color.WHITE, time)
+			scrollbar_show_tween.tween_property(get_h_scroll_bar(), 'modulate', Color.WHITE, time)
 
 ## Scroll to position to ensure control visible
 func ensure_control_visible(control : Control) -> void:

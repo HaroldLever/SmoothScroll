@@ -61,6 +61,11 @@ var scrollbar_fade_in_time := 0.2
 @export
 var scrollbar_fade_out_time := 0.5
 
+@export_group("Input")
+## If true sets the input event as handled with set_input_as_handled()
+@export
+var handle_input := true
+
 @export_group("Debug")
 ## Adds debug information
 @export
@@ -298,8 +303,9 @@ func _gui_input(event: InputEvent) -> void:
 		else:
 			content_dragging = false
 			is_in_deadzone = false
-	# Handle input
-	get_tree().get_root().set_input_as_handled()
+	# Handle input if handle_input is true
+	if handle_input:
+		get_tree().get_root().set_input_as_handled()
 
 # Scroll to new focused element
 func _on_focus_changed(control: Control) -> void:

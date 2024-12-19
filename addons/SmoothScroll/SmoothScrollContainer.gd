@@ -103,6 +103,8 @@ var drag_temp_data := []
 var is_in_deadzone := false
 ## Whether mouse is on h or v scroll bar
 var mouse_on_scrollbar := false
+## Last velocity from a screen drag
+var last_drag_velocity := Vector2(0,0)
 
 ## If content is being scrolled
 var is_scrolling := false:
@@ -303,6 +305,7 @@ func _gui_input(event: InputEvent) -> void:
 		else:
 			content_dragging = false
 			is_in_deadzone = false
+			velocity = last_drag_velocity
 	# Handle input if handle_input is true
 	if handle_input:
 		get_tree().get_root().set_input_as_handled()
@@ -557,6 +560,7 @@ func handle_content_dragging() -> void:
 			drag_temp_data[1]	# Temp y relative accumulation
 		) + drag_temp_data[3]
 		velocity.y = (y_pos - pos.y) / get_process_delta_time()
+		last_drag_velocity.y = velocity.y
 		pos.y = y_pos
 	if should_scroll_horizontal():
 		var x_pos = calculate_position.call(
@@ -565,6 +569,7 @@ func handle_content_dragging() -> void:
 			drag_temp_data[0]	# Temp x relative accumulation
 		) + drag_temp_data[2]
 		velocity.x = (x_pos - pos.x) / get_process_delta_time()
+		last_drag_velocity.x = velocity.x
 		pos.x = x_pos
 
 func remove_all_children_focus(node: Node) -> void:
